@@ -13,7 +13,7 @@ func Start(cfg *config.Config, port string) error {
 	humaAPI := humago.New(mux, huma.DefaultConfig("Kanban-MD API", "1.0.0"))
 
 	// Wire up the routes!
-	registerRoutes(humaAPI, cfg)
+	RegisterRoutes(humaAPI, cfg)
 
 	return http.ListenAndServe(port, mux)
 }

@@ -74,3 +74,19 @@ func (d *Date) UnmarshalJSON(data []byte) error {
 	*d = parsed
 	return nil
 }
+
+// MarshalText implements encoding.TextMarshaler.
+func (d Date) MarshalText() ([]byte, error) {
+	return []byte(d.String()), nil
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (d *Date) UnmarshalText(text []byte) error {
+	parsed, err := Parse(string(text))
+	if err != nil {
+		return err
+	}
+	*d = parsed
+	return nil
+}
+

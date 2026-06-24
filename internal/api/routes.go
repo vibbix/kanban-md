@@ -21,11 +21,3 @@ func RegisterRoutes(api huma.API, cfg *config.Config) {
 	registerBoardRoutes(boardGroup, cfg)
 	registerMetaRoutes(metaGroup, cfg)
 }
-
-func registerBoardRoutes(api huma.API, cfg *config.Config) {
-	// TODO: implement board endpoints (/api/v1/board)
-}
-
-func registerMetaRoutes(api huma.API, cfg *config.Config) {
-	// TODO: implement meta endpoints (/meta/logs, /meta/metrics, etc)
-}
