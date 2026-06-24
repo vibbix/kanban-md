@@ -30,19 +30,19 @@ type GetConfigOutput struct {
 
 type ConfigUpdateRequest struct {
 	Board *struct {
-		Name        *string `json:"name,omitempty"`
-		Description *string `json:"description,omitempty"`
-	} `json:"board,omitempty"`
+		Name        *string `json:"name,omitempty" doc:"The updated name of the board"`
+		Description *string `json:"description,omitempty" doc:"The updated description of the board"`
+	} `json:"board,omitempty" doc:"Board metadata"`
 	Defaults *struct {
-		Status   *string `json:"status,omitempty"`
-		Priority *string `json:"priority,omitempty"`
-		Class    *string `json:"class,omitempty"`
-	} `json:"defaults,omitempty"`
-	ClaimTimeout *string `json:"claim_timeout,omitempty"`
+		Status   *string `json:"status,omitempty" doc:"The default status for new tasks"`
+		Priority *string `json:"priority,omitempty" doc:"The default priority for new tasks"`
+		Class    *string `json:"class,omitempty" doc:"The default class of service for new tasks"`
+	} `json:"defaults,omitempty" doc:"Default values for new tasks"`
+	ClaimTimeout *string `json:"claim_timeout,omitempty" doc:"The time duration after which a claim expires"`
 	TUI *struct {
-		TitleLines       *int  `json:"title_lines,omitempty"`
-		HideEmptyColumns *bool `json:"hide_empty_columns,omitempty"`
-	} `json:"tui,omitempty"`
+		TitleLines       *int  `json:"title_lines,omitempty" doc:"Number of lines to allocate for task titles in the TUI"`
+		HideEmptyColumns *bool `json:"hide_empty_columns,omitempty" doc:"Whether to hide empty status columns in the TUI"`
+	} `json:"tui,omitempty" doc:"TUI rendering settings"`
 }
 
 type PutConfigInput struct {
