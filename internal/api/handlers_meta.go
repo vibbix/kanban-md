@@ -25,7 +25,7 @@ type AgentNameOutput struct {
 }
 
 type LogsInput struct {
-	Since  *date.Date `query:"since" doc:"Show entries after this date (YYYY-MM-DD)"`
+	Since  date.Date `query:"since" doc:"Show entries after this date (YYYY-MM-DD)"`
 	Limit  int    `query:"limit" doc:"Maximum number of entries to show"`
 	Action string `query:"action" doc:"Filter by action type (create, move, edit, delete, block, unblock)"`
 	TaskID int    `query:"task" doc:"Filter by task ID"`
@@ -36,7 +36,7 @@ type LogsOutput struct {
 }
 
 type MetricsInput struct {
-	Since *date.Date `query:"since" doc:"Only include tasks completed after this date (YYYY-MM-DD)"`
+	Since date.Date `query:"since" doc:"Only include tasks completed after this date (YYYY-MM-DD)"`
 }
 
 type MetricsOutput struct {
@@ -55,7 +55,7 @@ func registerMetaRoutes(api huma.API, cfg *config.Config) {
 	huma.Register(api, huma.Operation{
 		OperationID: "get-agent-name",
 		Method:      http.MethodGet,
-		Path:        "/meta/agent-name",
+		Path:        "/agent-name",
 		Summary:     "Get agent name",
 		Description: "Generate a random two-word name suitable for use with --claim.",
 		Tags:        []string{"Meta"},
@@ -72,13 +72,13 @@ func registerMetaRoutes(api huma.API, cfg *config.Config) {
 	huma.Register(api, huma.Operation{
 		OperationID: "get-logs",
 		Method:      http.MethodGet,
-		Path:        "/meta/logs",
+		Path:        "/logs",
 		Summary:     "Get activity logs",
 		Description: "Displays the activity log of board mutations.",
 		Tags:        []string{"Meta"},
 	}, func(ctx context.Context, input *LogsInput) (*LogsOutput, error) {
 		opts := board.LogFilterOptions{}
-		if input.Since != nil {
+		if !input.Since.IsZero() {
 			opts.Since = input.Since.Time
 		}
 		if input.Limit > 0 {
@@ -109,7 +109,7 @@ func registerMetaRoutes(api huma.API, cfg *config.Config) {
 	huma.Register(api, huma.Operation{
 		OperationID: "get-metrics",
 		Method:      http.MethodGet,
-		Path:        "/meta/metrics",
+		Path:        "/metrics",
 		Summary:     "Get flow metrics",
 		Description: "Displays flow metrics: throughput, average lead/cycle time, flow efficiency, etc.",
 		Tags:        []string{"Meta"},
@@ -131,7 +131,7 @@ func registerMetaRoutes(api huma.API, cfg *config.Config) {
 			}
 		}
 
-		if input.Since != nil {
+		if !input.Since.IsZero() {
 			sinceTime := input.Since.Time
 			filtered := make([]*task.Task, 0, len(tasks))
 			for _, t := range tasks {
@@ -154,7 +154,7 @@ func registerMetaRoutes(api huma.API, cfg *config.Config) {
 	huma.Register(api, huma.Operation{
 		OperationID: "get-version",
 		Method:      http.MethodGet,
-		Path:        "/meta/version",
+		Path:        "/version",
 		Summary:     "Get API version",
 		Tags:        []string{"Meta"},
 	}, func(ctx context.Context, input *struct{}) (*VersionOutput, error) {
