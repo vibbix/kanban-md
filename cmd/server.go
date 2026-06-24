@@ -1,16 +1,31 @@
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/antopolskiy/kanban-md/internal/api"
+	"github.com/spf13/cobra"
+)
 
-var showCmd = &cobra.Command{
+var serverCmd = &cobra.Command{
 	Use:   "server",
-	Short: "Starts web server",
-	Long:  `Starts a local web server that let's agents script `,
-	Args:  cobra.ExactArgs(1),
-	RunE:  runShow,
+	Short: "Starts the web server",
+	Long:  `Starts a local REST API server powered by OpenAPI 3.1.`,
+	Args:  cobra.NoArgs,
+	RunE:  runServerCmd,
 }
 
 func init() {
-	createCmd.Flags().String("port", ":3333", "The default port to run on")
-	rootCmd.AddCommand(showCmd)
+	serverCmd.Flags().String("port", ":3333", "The port to run the server on (e.g. :3333)")
+	rootCmd.AddCommand(serverCmd)
+}
+
+func runServerCmd(cmd *cobra.Command, _ []string) error {
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
+	}
+
+	port, _ := cmd.Flags().GetString("port")
+	
+	// Delegate all server logic to the internal/api package
+	return api.Start(cfg, port)
 }
