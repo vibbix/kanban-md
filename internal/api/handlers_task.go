@@ -329,6 +329,10 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		Summary:     "Move a task",
 		Tags:        []string{"Tasks"},
 	}, func(ctx context.Context, input *MoveTaskInput) (*MoveTaskOutput, error) {
+		if err := task.ValidateStatus(input.Body.Status, cfg.StatusNames()); err != nil {
+			return nil, huma.Error400BadRequest("Invalid status", err)
+		}
+
 		params := board.MoveParams{
 			ID:        input.ID,
 			NewStatus: input.Body.Status,

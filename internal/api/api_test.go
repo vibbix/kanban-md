@@ -151,3 +151,64 @@ func TestMetaEndpoints(t *testing.T) {
 		t.Fatalf("expected 200, got %d", resp.Code)
 	}
 }
+
+func TestAPIErrors(t *testing.T) {
+	_, hAPI := setupTestAPI(t)
+
+	// GET non-existent task
+	resp := hAPI.Get("/api/v1/task/999")
+	if resp.Code == http.StatusOK {
+		t.Errorf("expected error for non-existent task, got 200")
+	}
+
+	// PATCH non-existent task
+	resp = hAPI.Patch("/api/v1/task/999", map[string]any{
+		"title": "doesn't matter",
+	})
+	if resp.Code == http.StatusOK {
+		t.Errorf("expected error for non-existent task patch, got 200")
+	}
+
+	// Create task without title (if title is missing, board.Create might fail or it might create an empty task, let's pass an invalid priority)
+	resp = hAPI.Post("/api/v1/task", map[string]any{
+		"title":    "bad task",
+		"priority": "invalid-priority",
+	})
+	if resp.Code == http.StatusOK || resp.Code == http.StatusCreated {
+		t.Errorf("expected error for invalid priority, got %d", resp.Code)
+	}
+
+	// Move task to invalid status
+	resp = hAPI.Post("/api/v1/task", map[string]any{"title": "valid task"})
+	var created task.Task
+	json.Unmarshal(resp.Body.Bytes(), &created)
+
+	resp = hAPI.Put("/api/v1/task/1/status", map[string]any{
+		"status": "bogus-status",
+	})
+	if resp.Code == http.StatusOK {
+		t.Errorf("expected error for invalid status, got 200")
+	}
+
+	// Delete non-existent task
+	resp = hAPI.Delete("/api/v1/task/999")
+	if resp.Code == http.StatusOK {
+		t.Errorf("expected error for deleting non-existent task, got 200")
+	}
+
+	// Board checks
+	resp = hAPI.Get("/api/v1/board/check")
+	if resp.Code != http.StatusOK {
+		t.Errorf("expected 200 for board check, got %d", resp.Code)
+	}
+
+	resp = hAPI.Get("/api/v1/board/summary")
+	if resp.Code != http.StatusOK {
+		t.Errorf("expected 200 for board summary, got %d", resp.Code)
+	}
+
+	resp = hAPI.Post("/api/v1/board/compact", map[string]any{})
+	if resp.Code == http.StatusOK {
+		t.Errorf("expected 501 for compact, got 200")
+	}
+}
