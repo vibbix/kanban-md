@@ -212,3 +212,82 @@ func TestAPIErrors(t *testing.T) {
 		t.Errorf("expected 501 for compact, got 200")
 	}
 }
+
+func TestAPIMissingBranches(t *testing.T) {
+	_, hAPI := setupTestAPI(t)
+
+	// Create a task to work with
+	hAPI.Post("/api/v1/task", map[string]any{"title": "Coverage Task"})
+
+	// 1. PATCH with all optional fields
+	resp := hAPI.Patch("/api/v1/task/1", map[string]any{
+		"assignee": "test-user",
+		"tags": []string{"layer-1", "bug"},
+		"due": "2026-12-31",
+		"estimate": "5h",
+		"depends_on": []int{},
+		"blocked": true,
+		"block_reason": "waiting for user",
+		"body": "a new body",
+	})
+	if resp.Code != http.StatusOK {
+		t.Errorf("expected 200 for full patch, got %d", resp.Code)
+	}
+
+	// 2. Pick task
+	resp = hAPI.Post("/api/v1/task/1/pick", map[string]any{
+		"agent": "test-agent",
+	})
+	if resp.Code != http.StatusOK {
+		t.Errorf("expected 200 for pick, got %d: %s", resp.Code, resp.Body.String())
+	}
+
+	// 3. Handoff task
+	resp = hAPI.Post("/api/v1/task/1/handoff", map[string]any{
+		"agent": "test-agent",
+		"note": "Here you go",
+	})
+	if resp.Code != http.StatusOK {
+		t.Errorf("expected 200 for handoff, got %d", resp.Code)
+	}
+
+	// 4. Archive task
+	resp = hAPI.Post("/api/v1/task/1/archive", map[string]any{})
+	if resp.Code != http.StatusOK {
+		t.Errorf("expected 200 for archive, got %d", resp.Code)
+	}
+
+	// 5. Config PUT with all remaining optional fields
+	resp = hAPI.Put("/api/v1/board/config", map[string]any{
+		"defaults": map[string]string{
+			"status": "todo",
+			"priority": "low",
+			"class": "standard",
+		},
+		"claim_timeout": "2h",
+		"tui": map[string]any{
+			"title_lines": 3,
+			"hide_empty_columns": true,
+		},
+	})
+	if resp.Code != http.StatusOK {
+		t.Errorf("expected 200 for full config put, got %d: %s", resp.Code, resp.Body.String())
+	}
+
+	// 6. Meta Logs & Metrics with query params
+	resp = hAPI.Get("/meta/logs?since=2020-01-01&limit=5&action=create&task=1")
+	if resp.Code != http.StatusOK {
+		t.Errorf("expected 200 for filtered logs, got %d", resp.Code)
+	}
+
+	resp = hAPI.Get("/meta/metrics?since=2020-01-01")
+	if resp.Code != http.StatusOK {
+		t.Errorf("expected 200 for filtered metrics, got %d", resp.Code)
+	}
+
+	// 7. Context
+	resp = hAPI.Get("/api/v1/context")
+	if resp.Code != http.StatusOK {
+		t.Errorf("expected 200 for context, got %d", resp.Code)
+	}
+}
