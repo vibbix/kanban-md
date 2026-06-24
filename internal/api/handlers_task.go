@@ -31,18 +31,18 @@ type ListTasksOutput struct {
 // -- Structs for POST /task --
 type CreateTaskInput struct {
 	Body struct {
-		Title     string   `json:"title" required:"true" doc:"The task title"`
-		Status    string   `json:"status,omitempty"`
-		Priority  string   `json:"priority,omitempty"`
-		Class     string   `json:"class,omitempty"`
-		Assignee  string   `json:"assignee,omitempty"`
-		Tags      []string   `json:"tags,omitempty"`
-		Body      string     `json:"body,omitempty"`
-		Due       *date.Date `json:"due,omitempty" example:"2025-01-01"`
-		Estimate  string     `json:"estimate,omitempty"`
-		Claimant  string     `json:"claimant,omitempty"`
-		Parent    *int       `json:"parent,omitempty"`
-		DependsOn []int      `json:"depends_on,omitempty"`
+		Title     string     `json:"title" required:"true" doc:"The title of the task"`
+		Status    string     `json:"status,omitempty" doc:"The status column to place the task in"`
+		Priority  string     `json:"priority,omitempty" doc:"The priority level of the task"`
+		Class     string     `json:"class,omitempty" doc:"The class of service for the task"`
+		Assignee  string     `json:"assignee,omitempty" doc:"The person assigned to the task"`
+		Tags      []string   `json:"tags,omitempty" doc:"A list of tags associated with the task"`
+		Body      string     `json:"body,omitempty" doc:"The markdown body content of the task"`
+		Due       *date.Date `json:"due,omitempty" example:"2025-01-01" doc:"The due date for the task (YYYY-MM-DD)"`
+		Estimate  string     `json:"estimate,omitempty" doc:"The estimated effort for the task"`
+		Claimant  string     `json:"claimant,omitempty" doc:"The agent claiming the task upon creation"`
+		Parent    *int       `json:"parent,omitempty" doc:"The ID of the parent task"`
+		DependsOn []int      `json:"depends_on,omitempty" doc:"A list of task IDs this task depends on"`
 	}
 }
 
@@ -52,23 +52,23 @@ type CreateTaskOutput struct {
 
 // -- Structs for PATCH /task/{id} --
 type EditTaskInput struct {
-	ID   int `path:"id"`
+	ID   int `path:"id" doc:"The unique integer ID of the task"`
 	Body struct {
-		Title       *string  `json:"title,omitempty"`
-		Status      *string  `json:"status,omitempty"`
-		Priority    *string  `json:"priority,omitempty"`
-		Assignee    *string  `json:"assignee,omitempty"`
-		Class       *string    `json:"class,omitempty"`
-		BodyText    *string    `json:"body,omitempty"`
-		Estimate    *string    `json:"estimate,omitempty"`
-		Tags        []string   `json:"tags,omitempty"`
-		Due         *date.Date `json:"due,omitempty"`
-		Started     *date.Date `json:"started,omitempty"`
-		Completed   *date.Date `json:"completed,omitempty"`
-		Parent      *int       `json:"parent,omitempty"`
-		DependsOn   []int      `json:"depends_on,omitempty"`
-		Blocked     *bool      `json:"blocked,omitempty"`
-		BlockReason *string    `json:"block_reason,omitempty"`
+		Title       *string    `json:"title,omitempty" doc:"The updated title of the task"`
+		Status      *string    `json:"status,omitempty" doc:"The updated status of the task"`
+		Priority    *string    `json:"priority,omitempty" doc:"The updated priority of the task"`
+		Assignee    *string    `json:"assignee,omitempty" doc:"The updated assignee"`
+		Class       *string    `json:"class,omitempty" doc:"The updated class of service"`
+		BodyText    *string    `json:"body,omitempty" doc:"The updated markdown body content"`
+		Estimate    *string    `json:"estimate,omitempty" doc:"The updated estimate"`
+		Tags        []string   `json:"tags,omitempty" doc:"The completely replaced list of tags"`
+		Due         *date.Date `json:"due,omitempty" doc:"The updated due date"`
+		Started     *date.Date `json:"started,omitempty" doc:"The updated started date"`
+		Completed   *date.Date `json:"completed,omitempty" doc:"The updated completed date"`
+		Parent      *int       `json:"parent,omitempty" doc:"The updated parent task ID"`
+		DependsOn   []int      `json:"depends_on,omitempty" doc:"The completely replaced list of dependencies"`
+		Blocked     *bool      `json:"blocked,omitempty" doc:"Whether the task is currently blocked"`
+		BlockReason *string    `json:"block_reason,omitempty" doc:"The reason the task is blocked"`
 		Claimant    string     `json:"claimant,omitempty" doc:"Who is claiming the task to edit it"`
 	}
 }
@@ -79,11 +79,11 @@ type EditTaskOutput struct {
 
 // -- Structs for PUT /task/{id}/status --
 type MoveTaskInput struct {
-	ID   int `path:"id"`
+	ID   int `path:"id" doc:"The unique integer ID of the task"`
 	Body struct {
-		Status   string `json:"status" required:"true"`
-		Claimant string `json:"claimant,omitempty"`
-		SetClaim bool   `json:"set_claim,omitempty"`
+		Status   string `json:"status" required:"true" doc:"The target status column to move the task to"`
+		Claimant string `json:"claimant,omitempty" doc:"The agent claiming the task during the move"`
+		SetClaim bool   `json:"set_claim,omitempty" doc:"Whether to forcibly set the claim to the claimant"`
 	}
 }
 
@@ -98,7 +98,7 @@ type MoveTaskOutput struct {
 
 // -- Structs for DELETE /task/{id} --
 type DeleteTaskInput struct {
-	ID       int    `path:"id"`
+	ID       int    `path:"id" doc:"The unique integer ID of the task"`
 	Claimant string `query:"claimant" doc:"Who is deleting the task"`
 }
 
@@ -113,7 +113,7 @@ type DeleteTaskOutput struct {
 
 // -- Structs for POST /task/{id}/archive --
 type ArchiveTaskInput struct {
-	ID int `path:"id"`
+	ID int `path:"id" doc:"The unique integer ID of the task"`
 }
 
 type ArchiveTaskOutput struct {
@@ -122,9 +122,9 @@ type ArchiveTaskOutput struct {
 
 // -- Structs for POST /task/{id}/pick --
 type PickTaskInput struct {
-	ID   int `path:"id"`
+	ID   int `path:"id" doc:"The unique integer ID of the task"`
 	Body struct {
-		Agent string `json:"agent" required:"true"`
+		Agent string `json:"agent" required:"true" doc:"The name of the agent picking the task"`
 	}
 }
 
@@ -134,10 +134,10 @@ type PickTaskOutput struct {
 
 // -- Structs for POST /task/{id}/handoff --
 type HandoffTaskInput struct {
-	ID   int `path:"id"`
+	ID   int `path:"id" doc:"The unique integer ID of the task"`
 	Body struct {
-		Agent string `json:"agent" required:"true"`
-		Note  string `json:"note,omitempty"`
+		Agent string `json:"agent" required:"true" doc:"The name of the agent handing off the task"`
+		Note  string `json:"note,omitempty" doc:"An optional handoff note to append to the task body"`
 	}
 }
 
