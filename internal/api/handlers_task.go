@@ -20,12 +20,12 @@ type GetTaskInput struct {
 }
 
 type GetTaskOutput struct {
-	Body *task.Task
+	Body *TaskResponse
 }
 
 // -- Structs for GET /tasks --
 type ListTasksOutput struct {
-	Body []*task.Task
+	Body []*TaskResponse
 }
 
 // -- Structs for POST /task --
@@ -47,7 +47,7 @@ type CreateTaskInput struct {
 }
 
 type CreateTaskOutput struct {
-	Body *task.Task
+	Body *TaskResponse
 }
 
 // -- Structs for PATCH /task/{id} --
@@ -74,7 +74,7 @@ type EditTaskInput struct {
 }
 
 type EditTaskOutput struct {
-	Body *task.Task
+	Body *TaskResponse
 }
 
 // -- Structs for PUT /task/{id}/status --
@@ -88,8 +88,8 @@ type MoveTaskInput struct {
 }
 
 type MoveResultBody struct {
-	Task    *task.Task `json:"task"`
-	Changed bool       `json:"changed"`
+	Task    *TaskResponse `json:"task" doc:"The task in its updated state"`
+	Changed bool          `json:"changed" doc:"Whether the status actually changed (false if the task was already at the target status)"`
 }
 
 type MoveTaskOutput struct {
@@ -103,8 +103,8 @@ type DeleteTaskInput struct {
 }
 
 type DeleteResultBody struct {
-	Task     *task.Task `json:"task"`
-	Warnings []string   `json:"warnings,omitempty"`
+	Task     *TaskResponse `json:"task" doc:"The task in its archived state"`
+	Warnings []string      `json:"warnings,omitempty" doc:"Advisory messages, e.g. about tasks that depend on the deleted one"`
 }
 
 type DeleteTaskOutput struct {
@@ -129,7 +129,7 @@ type PickTaskInput struct {
 }
 
 type PickTaskOutput struct {
-	Body *task.Task
+	Body *TaskResponse
 }
 
 // -- Structs for POST /task/{id}/handoff --
@@ -142,14 +142,13 @@ type HandoffTaskInput struct {
 }
 
 type HandoffTaskOutput struct {
-	Body *task.Task
+	Body *TaskResponse
 }
 
 // -- Structs for GET /context --
 type GetContextOutput struct {
-	Body board.ContextData
+	Body ContextResponse
 }
-
 
 // registerTaskRoutes binds all task-related endpoints to the /api/v1/task and /api/v1/tasks groups.
 func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
@@ -163,18 +162,19 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		Method:      http.MethodGet,
 		Path:        "/{id}",
 		Summary:     "Get a specific task",
+		Description: "Returns a single task by its integer ID.",
 		Tags:        []string{"Tasks"},
 	}, func(ctx context.Context, input *GetTaskInput) (*GetTaskOutput, error) {
 		path, err := task.FindByID(cfg.TasksPath(), input.ID)
 		if err != nil {
-			return nil, huma.Error404NotFound("Task not found", err)
+			return nil, apiError("Task not found", err)
 		}
 		t, err := task.Read(path)
 		if err != nil {
-			return nil, huma.Error500InternalServerError("Failed to read task file", err)
+			return nil, apiError("Failed to read task file", err)
 		}
 		resp := &GetTaskOutput{}
-		resp.Body = t
+		resp.Body = toTaskResponse(t)
 		return resp, nil
 	})
 
@@ -184,6 +184,7 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		Method:      http.MethodGet,
 		Path:        "",
 		Summary:     "List all tasks",
+		Description: "Returns every task on the board, including archived ones.",
 		Tags:        []string{"Tasks"},
 	}, func(ctx context.Context, input *struct{}) (*ListTasksOutput, error) {
 		tasks, _, err := board.List(cfg, board.ListOptions{})
@@ -191,7 +192,7 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 			return nil, huma.Error500InternalServerError("Failed to list tasks", err)
 		}
 		resp := &ListTasksOutput{}
-		resp.Body = tasks
+		resp.Body = toTaskResponses(tasks)
 		return resp, nil
 	})
 
@@ -201,6 +202,7 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		Method:      http.MethodPost,
 		Path:        "",
 		Summary:     "Create a new task",
+		Description: "Creates a new task. Status, priority, and class default to the board configuration when omitted.",
 		Tags:        []string{"Tasks"},
 	}, func(ctx context.Context, input *CreateTaskInput) (*CreateTaskOutput, error) {
 		unlock, err := filelock.Lock(filepath.Join(cfg.Dir(), ".lock"))
@@ -210,16 +212,16 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		defer unlock()
 
 		params := board.CreateParams{
-			Title:    input.Body.Title,
-			Status:   input.Body.Status,
-			Priority: input.Body.Priority,
-			Class:    input.Body.Class,
-			Assignee: input.Body.Assignee,
-			Tags:     input.Body.Tags,
-			Body:     input.Body.Body,
-			Estimate: input.Body.Estimate,
-			Claimant: input.Body.Claimant,
-			Parent:   input.Body.Parent,
+			Title:     input.Body.Title,
+			Status:    input.Body.Status,
+			Priority:  input.Body.Priority,
+			Class:     input.Body.Class,
+			Assignee:  input.Body.Assignee,
+			Tags:      input.Body.Tags,
+			Body:      input.Body.Body,
+			Estimate:  input.Body.Estimate,
+			Claimant:  input.Body.Claimant,
+			Parent:    input.Body.Parent,
 			DependsOn: input.Body.DependsOn,
 		}
 		if input.Body.Due != nil {
@@ -228,11 +230,11 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 
 		result, err := board.Create(cfg, params, time.Now())
 		if err != nil {
-			return nil, huma.Error400BadRequest("Failed to create task", err)
+			return nil, apiError("Failed to create task", err)
 		}
 
 		resp := &CreateTaskOutput{}
-		resp.Body = result.Task
+		resp.Body = toTaskResponse(result.Task)
 		return resp, nil
 	})
 
@@ -242,6 +244,7 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		Method:      http.MethodPatch,
 		Path:        "/{id}",
 		Summary:     "Edit a task",
+		Description: "Partially updates a task. Only the fields provided in the body are changed. Requires the matching claimant if the task is claimed.",
 		Tags:        []string{"Tasks"},
 	}, func(ctx context.Context, input *EditTaskInput) (*EditTaskOutput, error) {
 		result, err := board.Edit(cfg, input.ID, input.Body.Claimant, false, func(t *task.Task) (bool, error) {
@@ -313,11 +316,11 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		}, time.Now())
 
 		if err != nil {
-			return nil, huma.Error400BadRequest("Failed to edit task", err)
+			return nil, apiError("Failed to edit task", err)
 		}
 
 		resp := &EditTaskOutput{}
-		resp.Body = result.Task
+		resp.Body = toTaskResponse(result.Task)
 		return resp, nil
 	})
 
@@ -327,10 +330,11 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		Method:      http.MethodPut,
 		Path:        "/{id}/status",
 		Summary:     "Move a task",
+		Description: "Moves a task to a different status column, enforcing WIP limits and claim requirements. Idempotent if the task is already at the target status.",
 		Tags:        []string{"Tasks"},
 	}, func(ctx context.Context, input *MoveTaskInput) (*MoveTaskOutput, error) {
 		if err := task.ValidateStatus(input.Body.Status, cfg.StatusNames()); err != nil {
-			return nil, huma.Error400BadRequest("Invalid status", err)
+			return nil, apiError("Invalid status", err)
 		}
 
 		params := board.MoveParams{
@@ -341,12 +345,12 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		}
 		result, err := board.Move(cfg, params, time.Now())
 		if err != nil {
-			return nil, huma.Error400BadRequest("Failed to move task", err)
+			return nil, apiError("Failed to move task", err)
 		}
 
 		resp := &MoveTaskOutput{}
 		resp.Body = MoveResultBody{
-			Task:    result.Task,
+			Task:    toTaskResponse(result.Task),
 			Changed: result.OldStatus != "",
 		}
 		return resp, nil
@@ -358,16 +362,17 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		Method:      http.MethodDelete,
 		Path:        "/{id}",
 		Summary:     "Soft-delete (archive) a task",
+		Description: "Soft-deletes a task by moving it to the archived status. Idempotent, and returns advisory warnings about dependent tasks.",
 		Tags:        []string{"Tasks"},
 	}, func(ctx context.Context, input *DeleteTaskInput) (*DeleteTaskOutput, error) {
 		result, err := board.Delete(cfg, input.ID, input.Claimant, time.Now())
 		if err != nil {
-			return nil, huma.Error400BadRequest("Failed to delete task", err)
+			return nil, apiError("Failed to delete task", err)
 		}
 
 		resp := &DeleteTaskOutput{}
 		resp.Body = DeleteResultBody{
-			Task:     result.Task,
+			Task:     toTaskResponse(result.Task),
 			Warnings: result.Warnings,
 		}
 		return resp, nil
@@ -379,6 +384,7 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		Method:      http.MethodPost,
 		Path:        "/{id}/archive",
 		Summary:     "Archive a task",
+		Description: "Archives a task by moving it to the archived status. Idempotent if the task is already archived.",
 		Tags:        []string{"Tasks"},
 	}, func(ctx context.Context, input *ArchiveTaskInput) (*ArchiveTaskOutput, error) {
 		// Archive is essentially moving to the archive status
@@ -388,12 +394,12 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		}
 		result, err := board.Move(cfg, params, time.Now())
 		if err != nil {
-			return nil, huma.Error400BadRequest("Failed to archive task", err)
+			return nil, apiError("Failed to archive task", err)
 		}
 
 		resp := &ArchiveTaskOutput{}
 		resp.Body = MoveResultBody{
-			Task:    result.Task,
+			Task:    toTaskResponse(result.Task),
 			Changed: result.OldStatus != "",
 		}
 		return resp, nil
@@ -405,6 +411,7 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		Method:      http.MethodPost,
 		Path:        "/{id}/pick",
 		Summary:     "Pick a task",
+		Description: "Claims a specific task for the given agent.",
 		Tags:        []string{"Tasks"},
 	}, func(ctx context.Context, input *PickTaskInput) (*PickTaskOutput, error) {
 		// Pick (claim) a specific task
@@ -415,11 +422,11 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 			return true, nil
 		}, time.Now())
 		if err != nil {
-			return nil, huma.Error400BadRequest("Failed to pick task", err)
+			return nil, apiError("Failed to pick task", err)
 		}
 
 		resp := &PickTaskOutput{}
-		resp.Body = result.Task
+		resp.Body = toTaskResponse(result.Task)
 		return resp, nil
 	})
 
@@ -429,6 +436,7 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		Method:      http.MethodPost,
 		Path:        "/{id}/handoff",
 		Summary:     "Handoff a task",
+		Description: "Hands a task off for review: moves it to the review status, appends an optional note, and releases the claim.",
 		Tags:        []string{"Tasks"},
 	}, func(ctx context.Context, input *HandoffTaskInput) (*HandoffTaskOutput, error) {
 		// Handoff is move to review + claim release + note
@@ -442,11 +450,11 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 			return true, nil
 		}, time.Now())
 		if err != nil {
-			return nil, huma.Error400BadRequest("Failed to handoff task", err)
+			return nil, apiError("Failed to handoff task", err)
 		}
 
 		resp := &HandoffTaskOutput{}
-		resp.Body = result.Task
+		resp.Body = toTaskResponse(result.Task)
 		return resp, nil
 	})
 
@@ -456,6 +464,7 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		Method:      http.MethodGet,
 		Path:        "",
 		Summary:     "Get board context",
+		Description: "Returns a compact, agent-oriented snapshot of the board: summary counts and grouped task sections.",
 		Tags:        []string{"Board"},
 	}, func(ctx context.Context, input *struct{}) (*GetContextOutput, error) {
 		tasks, _, err := board.List(cfg, board.ListOptions{})
@@ -466,7 +475,7 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		contextData := board.GenerateContext(cfg, tasks, board.ContextOptions{}, time.Now())
 
 		resp := &GetContextOutput{}
-		resp.Body = contextData
+		resp.Body = toContextResponse(contextData)
 		return resp, nil
 	})
 }

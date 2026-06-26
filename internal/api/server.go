@@ -10,7 +10,11 @@ import (
 
 func Start(cfg *config.Config, port string) error {
 	mux := http.NewServeMux()
-	humaAPI := humago.New(mux, huma.DefaultConfig("Kanban-MD API", "1.0.0"))
+
+	humaCfg := huma.DefaultConfig("Kanban-MD API", "1.0.0")
+	// no need for $schema
+	humaCfg.CreateHooks = nil
+	humaAPI := humago.New(mux, humaCfg)
 
 	// Wire up the routes!
 	RegisterRoutes(humaAPI, cfg)

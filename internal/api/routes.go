@@ -13,7 +13,7 @@ func RegisterRoutes(api huma.API, cfg *config.Config) {
 	// Domain-specific groups
 	boardGroup := huma.NewGroup(v1, "/board")
 	// Note: Meta operations like agent-name and metrics might sit at /meta instead of /api/v1/meta
-	metaGroup := huma.NewGroup(api, "/meta") 
+	metaGroup := huma.NewGroup(api, "/meta")
 
 	// Delegate route registration to the domain handlers
 	// We pass the v1 group so the task domain can set up both /task and /tasks
