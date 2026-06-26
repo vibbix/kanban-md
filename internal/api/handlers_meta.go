@@ -26,9 +26,9 @@ type AgentNameOutput struct {
 
 type LogsInput struct {
 	Since  date.Date `query:"since" doc:"Show entries after this date (YYYY-MM-DD)"`
-	Limit  int    `query:"limit" doc:"Maximum number of entries to show"`
-	Action string `query:"action" doc:"Filter by action type (create, move, edit, delete, block, unblock)"`
-	TaskID int    `query:"task" doc:"Filter by task ID"`
+	Limit  int       `query:"limit" doc:"Maximum number of entries to show"`
+	Action string    `query:"action" doc:"Filter by action type (create, move, edit, delete, block, unblock)"`
+	TaskID int       `query:"task" doc:"Filter by task ID"`
 }
 
 type LogsOutput struct {
@@ -40,7 +40,7 @@ type MetricsInput struct {
 }
 
 type MetricsOutput struct {
-	Body board.Metrics
+	Body MetricsResponse
 }
 
 type VersionOutputBody map[string]string
@@ -48,8 +48,6 @@ type VersionOutputBody map[string]string
 type VersionOutput struct {
 	Body VersionOutputBody
 }
-
-
 
 func registerMetaRoutes(api huma.API, cfg *config.Config) {
 	huma.Register(api, huma.Operation{
@@ -146,7 +144,7 @@ func registerMetaRoutes(api huma.API, cfg *config.Config) {
 		m := board.ComputeMetrics(cfg, tasks, now)
 
 		resp := &MetricsOutput{
-			Body: m,
+			Body: toMetricsResponse(m),
 		}
 		return resp, nil
 	})
@@ -156,6 +154,7 @@ func registerMetaRoutes(api huma.API, cfg *config.Config) {
 		Method:      http.MethodGet,
 		Path:        "/version",
 		Summary:     "Get API version",
+		Description: "Returns the running server's version string.",
 		Tags:        []string{"Meta"},
 	}, func(ctx context.Context, input *struct{}) (*VersionOutput, error) {
 		resp := &VersionOutput{}

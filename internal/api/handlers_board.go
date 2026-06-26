@@ -13,15 +13,13 @@ import (
 
 // -- Structs for GET /summary --
 type GetSummaryOutput struct {
-	Body board.Overview
+	Body OverviewResponse
 }
 
 // -- Structs for GET /check --
 type GetCheckOutput struct {
-	Body task.ConsistencyReport
+	Body ConsistencyReportResponse
 }
-
-
 
 // -- Structs for GET /config --
 type GetConfigOutput struct {
@@ -39,7 +37,7 @@ type ConfigUpdateRequest struct {
 		Class    *string `json:"class,omitempty" doc:"The default class of service for new tasks"`
 	} `json:"defaults,omitempty" doc:"Default values for new tasks"`
 	ClaimTimeout *string `json:"claim_timeout,omitempty" doc:"The time duration after which a claim expires"`
-	TUI *struct {
+	TUI          *struct {
 		TitleLines       *int  `json:"title_lines,omitempty" doc:"Number of lines to allocate for task titles in the TUI"`
 		HideEmptyColumns *bool `json:"hide_empty_columns,omitempty" doc:"Whether to hide empty status columns in the TUI"`
 	} `json:"tui,omitempty" doc:"TUI rendering settings"`
@@ -61,6 +59,7 @@ func registerBoardRoutes(api huma.API, cfg *config.Config) {
 		Method:      http.MethodGet,
 		Path:        "/summary",
 		Summary:     "Get board summary",
+		Description: "Returns per-status, per-priority, and per-class counts for all active (non-archived) tasks.",
 		Tags:        []string{"Board"},
 	}, func(ctx context.Context, input *struct{}) (*GetSummaryOutput, error) {
 		tasks, _, err := task.ReadAllLenient(cfg.TasksPath())
@@ -79,7 +78,7 @@ func registerBoardRoutes(api huma.API, cfg *config.Config) {
 		summary := board.Summary(cfg, activeTasks, time.Now())
 
 		resp := &GetSummaryOutput{
-			Body: summary,
+			Body: toOverviewResponse(summary),
 		}
 		return resp, nil
 	})
@@ -90,6 +89,7 @@ func registerBoardRoutes(api huma.API, cfg *config.Config) {
 		Method:      http.MethodGet,
 		Path:        "/check",
 		Summary:     "Check board consistency",
+		Description: "Validates the board and applies safe automatic repairs (e.g. duplicate IDs, filename mismatches), returning warnings and the repairs performed.",
 		Tags:        []string{"Board"},
 	}, func(ctx context.Context, input *struct{}) (*GetCheckOutput, error) {
 		report, err := task.EnsureConsistency(cfg)
@@ -98,12 +98,10 @@ func registerBoardRoutes(api huma.API, cfg *config.Config) {
 		}
 
 		resp := &GetCheckOutput{
-			Body: report,
+			Body: toConsistencyReport(report),
 		}
 		return resp, nil
 	})
-
-
 
 	// 4. GET /config
 	huma.Register(api, huma.Operation{
@@ -111,6 +109,7 @@ func registerBoardRoutes(api huma.API, cfg *config.Config) {
 		Method:      http.MethodGet,
 		Path:        "/config",
 		Summary:     "Get board configuration",
+		Description: "Returns the full board configuration, including the ordered statuses, priorities, and classes.",
 		Tags:        []string{"Board"},
 	}, func(ctx context.Context, input *struct{}) (*GetConfigOutput, error) {
 		resp := &GetConfigOutput{
@@ -125,6 +124,7 @@ func registerBoardRoutes(api huma.API, cfg *config.Config) {
 		Method:      http.MethodPut,
 		Path:        "/config",
 		Summary:     "Update board configuration",
+		Description: "Selectively updates board metadata, defaults, claim timeout, and TUI settings. Only fields present in the body are changed.",
 		Tags:        []string{"Board"},
 	}, func(ctx context.Context, input *PutConfigInput) (*PutConfigOutput, error) {
 		// Apply updates selectively
