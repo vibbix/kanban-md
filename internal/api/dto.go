@@ -1,3 +1,6 @@
+// Package api implements the kanban-md HTTP REST API server, built on huma.
+// It exposes board operations over HTTP and defines the response DTOs that
+// document and shape the wire format.
 package api
 
 import (
