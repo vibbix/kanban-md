@@ -16,7 +16,6 @@ import (
 
 // Version is the API version string, typically overridden by ldflags.
 var Version = "dev"
-var startTime = time.Now()
 
 type AgentNameOutputBody map[string]string
 
@@ -161,5 +160,4 @@ func registerMetaRoutes(api huma.API, cfg *config.Config) {
 		resp.Body = map[string]string{"version": Version}
 		return resp, nil
 	})
-
 }

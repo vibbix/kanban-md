@@ -4,8 +4,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/antopolskiy/kanban-md/internal/clierr"
 	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/antopolskiy/kanban-md/internal/clierr"
 )
 
 // apiError converts a domain error into a huma StatusError whose HTTP status is
