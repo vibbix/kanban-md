@@ -1,9 +1,12 @@
 package api
 
 import (
+	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/antopolskiy/kanban-md/internal/board"
 	"github.com/antopolskiy/kanban-md/internal/config"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
@@ -29,6 +32,12 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 // Start runs the REST API server on the given port, blocking until it exits.
 func Start(cfg *config.Config, port string) error {
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+	logger.Info("starting server", "port", port)
+
+	// Mirror board mutations (the activity changelog) into the server logs.
+	board.SetActivityLogger(logger)
+
 	mux := http.NewServeMux()
 
 	humaCfg := huma.DefaultConfig("Kanban-MD API", "1.0.0")
@@ -46,4 +55,3 @@ func Start(cfg *config.Config, port string) error {
 	}
 	return srv.ListenAndServe()
 }
-

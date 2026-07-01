@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -15,6 +17,18 @@ const (
 	logFileMode   = 0o600
 	maxLogEntries = 10000 // truncate oldest entries when log exceeds this size
 )
+
+// activityLogger, when set via SetActivityLogger, receives a structured log
+// line for every entry appended to the activity log. It is nil by default so
+// CLI and TUI callers are unaffected; the server wires it up to surface
+// changelog activity in its own logs.
+var activityLogger atomic.Pointer[slog.Logger]
+
+// SetActivityLogger configures a logger to mirror every appended activity
+// log entry as a structured log line. Pass nil to disable.
+func SetActivityLogger(logger *slog.Logger) {
+	activityLogger.Store(logger)
+}
 
 // LogEntry represents a single activity log entry.
 type LogEntry struct {
@@ -52,10 +66,27 @@ func AppendLog(kanbanDir string, entry LogEntry) error {
 		return fmt.Errorf("writing log entry: %w", err)
 	}
 
+	logActivityEntry(entry)
+
 	// Truncate if needed (best-effort; errors are non-fatal).
 	_ = truncateLogIfNeeded(path)
 
 	return nil
+}
+
+// logActivityEntry mirrors an appended log entry to the configured activity
+// logger, if any.
+func logActivityEntry(entry LogEntry) {
+	logger := activityLogger.Load()
+	if logger == nil {
+		return
+	}
+	logger.Info("changelog entry",
+		"action", entry.Action,
+		"task_id", entry.TaskID,
+		"detail", entry.Detail,
+		"timestamp", entry.Timestamp,
+	)
 }
 
 // truncateLogIfNeeded reads the log file and, if it exceeds maxLogEntries,
