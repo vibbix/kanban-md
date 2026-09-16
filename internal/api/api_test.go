@@ -29,7 +29,7 @@ func TestAPILifecycle(t *testing.T) {
 	cfg, hAPI := setupTestAPI(t)
 
 	// 1. Create a task
-	resp := hAPI.Post("/api/v1/task", map[string]any{
+	resp := hAPI.Post("/api/v0/task", map[string]any{
 		"title": "API Test Task",
 	})
 	if resp.Code != http.StatusCreated && resp.Code != http.StatusOK {
@@ -48,7 +48,7 @@ func TestAPILifecycle(t *testing.T) {
 	}
 
 	// 2. Get the task
-	resp = hAPI.Get("/api/v1/task/1")
+	resp = hAPI.Get("/api/v0/task/1")
 	if resp.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.Code)
 	}
@@ -59,7 +59,7 @@ func TestAPILifecycle(t *testing.T) {
 	}
 
 	// 3. Edit the task
-	resp = hAPI.Patch("/api/v1/task/1", map[string]any{
+	resp = hAPI.Patch("/api/v0/task/1", map[string]any{
 		"title": "Updated Task",
 		"priority": "high",
 	})
@@ -73,7 +73,7 @@ func TestAPILifecycle(t *testing.T) {
 	}
 
 	// 4. Move the task
-	resp = hAPI.Put("/api/v1/task/1/status", map[string]any{
+	resp = hAPI.Put("/api/v0/task/1/status", map[string]any{
 		"status": "in-progress",
 		"claimant": "test-agent",
 	})
@@ -82,7 +82,7 @@ func TestAPILifecycle(t *testing.T) {
 	}
 	
 	// 5. List tasks
-	resp = hAPI.Get("/api/v1/tasks")
+	resp = hAPI.Get("/api/v0/tasks")
 	if resp.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.Code)
 	}
@@ -93,12 +93,12 @@ func TestAPILifecycle(t *testing.T) {
 	}
 
 	// 6. Board Config Get/Put
-	resp = hAPI.Get("/api/v1/board/config")
+	resp = hAPI.Get("/api/v0/board/config")
 	if resp.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.Code)
 	}
 	
-	resp = hAPI.Put("/api/v1/board/config", map[string]any{
+	resp = hAPI.Put("/api/v0/board/config", map[string]any{
 		"board": map[string]string{
 			"name": "Updated Board",
 		},
@@ -111,12 +111,12 @@ func TestAPILifecycle(t *testing.T) {
 	}
 
 	// 7. Delete task
-	resp = hAPI.Delete("/api/v1/task/1")
+	resp = hAPI.Delete("/api/v0/task/1")
 	if resp.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.Code)
 	}
 
-	resp = hAPI.Get("/api/v1/task/1")
+	resp = hAPI.Get("/api/v0/task/1")
 	// The task is still accessible, but status should be deleted
 	json.Unmarshal(resp.Body.Bytes(), &fetched)
 	if fetched.Status != "archived" {
@@ -128,25 +128,25 @@ func TestMetaEndpoints(t *testing.T) {
 	_, hAPI := setupTestAPI(t)
 
 	// test Agent Name
-	resp := hAPI.Get("/meta/agent-name")
+	resp := hAPI.Get("/api/v0/meta/agent-name")
 	if resp.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.Code)
 	}
 
 	// test Version
-	resp = hAPI.Get("/meta/version")
+	resp = hAPI.Get("/api/v0/meta/version")
 	if resp.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.Code)
 	}
 
 	// test Metrics
-	resp = hAPI.Get("/meta/metrics")
+	resp = hAPI.Get("/api/v0/meta/metrics")
 	if resp.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.Code)
 	}
 
 	// test Logs
-	resp = hAPI.Get("/meta/logs")
+	resp = hAPI.Get("/api/v0/meta/logs")
 	if resp.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.Code)
 	}
@@ -156,13 +156,13 @@ func TestAPIErrors(t *testing.T) {
 	_, hAPI := setupTestAPI(t)
 
 	// GET non-existent task
-	resp := hAPI.Get("/api/v1/task/999")
+	resp := hAPI.Get("/api/v0/task/999")
 	if resp.Code == http.StatusOK {
 		t.Errorf("expected error for non-existent task, got 200")
 	}
 
 	// PATCH non-existent task
-	resp = hAPI.Patch("/api/v1/task/999", map[string]any{
+	resp = hAPI.Patch("/api/v0/task/999", map[string]any{
 		"title": "doesn't matter",
 	})
 	if resp.Code == http.StatusOK {
@@ -170,7 +170,7 @@ func TestAPIErrors(t *testing.T) {
 	}
 
 	// Create task without title (if title is missing, board.Create might fail or it might create an empty task, let's pass an invalid priority)
-	resp = hAPI.Post("/api/v1/task", map[string]any{
+	resp = hAPI.Post("/api/v0/task", map[string]any{
 		"title":    "bad task",
 		"priority": "invalid-priority",
 	})
@@ -179,11 +179,11 @@ func TestAPIErrors(t *testing.T) {
 	}
 
 	// Move task to invalid status
-	resp = hAPI.Post("/api/v1/task", map[string]any{"title": "valid task"})
+	resp = hAPI.Post("/api/v0/task", map[string]any{"title": "valid task"})
 	var created task.Task
 	json.Unmarshal(resp.Body.Bytes(), &created)
 
-	resp = hAPI.Put("/api/v1/task/1/status", map[string]any{
+	resp = hAPI.Put("/api/v0/task/1/status", map[string]any{
 		"status": "bogus-status",
 	})
 	if resp.Code == http.StatusOK {
@@ -191,23 +191,23 @@ func TestAPIErrors(t *testing.T) {
 	}
 
 	// Delete non-existent task
-	resp = hAPI.Delete("/api/v1/task/999")
+	resp = hAPI.Delete("/api/v0/task/999")
 	if resp.Code == http.StatusOK {
 		t.Errorf("expected error for deleting non-existent task, got 200")
 	}
 
 	// Board checks
-	resp = hAPI.Get("/api/v1/board/check")
+	resp = hAPI.Get("/api/v0/board/check")
 	if resp.Code != http.StatusOK {
 		t.Errorf("expected 200 for board check, got %d", resp.Code)
 	}
 
-	resp = hAPI.Get("/api/v1/board/summary")
+	resp = hAPI.Get("/api/v0/board/summary")
 	if resp.Code != http.StatusOK {
 		t.Errorf("expected 200 for board summary, got %d", resp.Code)
 	}
 
-	resp = hAPI.Post("/api/v1/board/compact", map[string]any{})
+	resp = hAPI.Post("/api/v0/board/compact", map[string]any{})
 	if resp.Code == http.StatusOK {
 		t.Errorf("expected 501 for compact, got 200")
 	}
@@ -217,10 +217,10 @@ func TestAPIMissingBranches(t *testing.T) {
 	_, hAPI := setupTestAPI(t)
 
 	// Create a task to work with
-	hAPI.Post("/api/v1/task", map[string]any{"title": "Coverage Task"})
+	hAPI.Post("/api/v0/task", map[string]any{"title": "Coverage Task"})
 
 	// 1. PATCH with all optional fields
-	resp := hAPI.Patch("/api/v1/task/1", map[string]any{
+	resp := hAPI.Patch("/api/v0/task/1", map[string]any{
 		"assignee": "test-user",
 		"tags": []string{"layer-1", "bug"},
 		"due": "2026-12-31",
@@ -235,7 +235,7 @@ func TestAPIMissingBranches(t *testing.T) {
 	}
 
 	// 2. Pick task
-	resp = hAPI.Post("/api/v1/task/1/pick", map[string]any{
+	resp = hAPI.Post("/api/v0/task/1/pick", map[string]any{
 		"agent": "test-agent",
 	})
 	if resp.Code != http.StatusOK {
@@ -243,7 +243,7 @@ func TestAPIMissingBranches(t *testing.T) {
 	}
 
 	// 3. Handoff task
-	resp = hAPI.Post("/api/v1/task/1/handoff", map[string]any{
+	resp = hAPI.Post("/api/v0/task/1/handoff", map[string]any{
 		"agent": "test-agent",
 		"note": "Here you go",
 	})
@@ -252,13 +252,13 @@ func TestAPIMissingBranches(t *testing.T) {
 	}
 
 	// 4. Archive task
-	resp = hAPI.Post("/api/v1/task/1/archive", map[string]any{})
+	resp = hAPI.Post("/api/v0/task/1/archive", map[string]any{})
 	if resp.Code != http.StatusOK {
 		t.Errorf("expected 200 for archive, got %d", resp.Code)
 	}
 
 	// 5. Config PUT with all remaining optional fields
-	resp = hAPI.Put("/api/v1/board/config", map[string]any{
+	resp = hAPI.Put("/api/v0/board/config", map[string]any{
 		"defaults": map[string]string{
 			"status": "todo",
 			"priority": "low",
@@ -275,18 +275,18 @@ func TestAPIMissingBranches(t *testing.T) {
 	}
 
 	// 6. Meta Logs & Metrics with query params
-	resp = hAPI.Get("/meta/logs?since=2020-01-01&limit=5&action=create&task=1")
+	resp = hAPI.Get("/api/v0/meta/logs?since=2020-01-01&limit=5&action=create&task=1")
 	if resp.Code != http.StatusOK {
 		t.Errorf("expected 200 for filtered logs, got %d", resp.Code)
 	}
 
-	resp = hAPI.Get("/meta/metrics?since=2020-01-01")
+	resp = hAPI.Get("/api/v0/meta/metrics?since=2020-01-01")
 	if resp.Code != http.StatusOK {
 		t.Errorf("expected 200 for filtered metrics, got %d", resp.Code)
 	}
 
 	// 7. Context
-	resp = hAPI.Get("/api/v1/context")
+	resp = hAPI.Get("/api/v0/context")
 	if resp.Code != http.StatusOK {
 		t.Errorf("expected 200 for context, got %d", resp.Code)
 	}

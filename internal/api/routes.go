@@ -7,17 +7,9 @@ import (
 
 // RegisterRoutes binds all HTTP paths to their respective handler functions using groups.
 func RegisterRoutes(api huma.API, cfg *config.Config) {
-	// Base API group
-	v1 := huma.NewGroup(api, "/api/v1")
+	v0 := huma.NewGroup(api, "/api/v0")
 
-	// Domain-specific groups
-	boardGroup := huma.NewGroup(v1, "/board")
-	// Note: Meta operations like agent-name and metrics might sit at /meta instead of /api/v1/meta
-	metaGroup := huma.NewGroup(api, "/meta")
-
-	// Delegate route registration to the domain handlers
-	// We pass the v1 group so the task domain can set up both /task and /tasks
-	registerTaskRoutes(v1, cfg)
-	registerBoardRoutes(boardGroup, cfg)
-	registerMetaRoutes(metaGroup, cfg)
+	registerTaskRoutes(v0, cfg)
+	registerBoardRoutes(huma.NewGroup(v0, "/board"), cfg)
+	registerMetaRoutes(huma.NewGroup(v0, "/meta"), cfg)
 }

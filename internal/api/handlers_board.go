@@ -51,7 +51,7 @@ type PutConfigOutput struct {
 	Body config.Config
 }
 
-// registerBoardRoutes binds all board-related endpoints to the /api/v1/board group.
+// registerBoardRoutes binds all board-related endpoints to the /api/v0/board group.
 func registerBoardRoutes(api huma.API, cfg *config.Config) {
 	// 1. GET /summary
 	huma.Register(api, huma.Operation{

@@ -150,13 +150,12 @@ type GetContextOutput struct {
 	Body ContextResponse
 }
 
-// registerTaskRoutes binds all task-related endpoints to the /api/v1/task and /api/v1/tasks groups.
+// registerTaskRoutes binds all task-related endpoints to the /api/v0/task and /api/v0/tasks groups.
 func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 	singularTaskGroup := huma.NewGroup(v1, "/task")
 	pluralTasksGroup := huma.NewGroup(v1, "/tasks")
 	contextGroup := huma.NewGroup(v1, "/context")
 
-	// 1. GET /api/v1/task/{id}
 	huma.Register(singularTaskGroup, huma.Operation{
 		OperationID: "get-task",
 		Method:      http.MethodGet,
@@ -178,7 +177,6 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		return resp, nil
 	})
 
-	// 2. GET /api/v1/tasks
 	huma.Register(pluralTasksGroup, huma.Operation{
 		OperationID: "list-tasks",
 		Method:      http.MethodGet,
@@ -196,7 +194,6 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		return resp, nil
 	})
 
-	// 3. POST /api/v1/task
 	huma.Register(singularTaskGroup, huma.Operation{
 		OperationID: "create-task",
 		Method:      http.MethodPost,
@@ -238,7 +235,6 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		return resp, nil
 	})
 
-	// 4. PATCH /api/v1/task/{id}
 	huma.Register(singularTaskGroup, huma.Operation{
 		OperationID: "edit-task",
 		Method:      http.MethodPatch,
@@ -324,7 +320,6 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		return resp, nil
 	})
 
-	// 5. PUT /api/v1/task/{id}/status
 	huma.Register(singularTaskGroup, huma.Operation{
 		OperationID: "move-task",
 		Method:      http.MethodPut,
@@ -356,7 +351,6 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		return resp, nil
 	})
 
-	// 6. DELETE /api/v1/task/{id}
 	huma.Register(singularTaskGroup, huma.Operation{
 		OperationID: "delete-task",
 		Method:      http.MethodDelete,
@@ -378,7 +372,6 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		return resp, nil
 	})
 
-	// 7. POST /api/v1/task/{id}/archive
 	huma.Register(singularTaskGroup, huma.Operation{
 		OperationID: "archive-task",
 		Method:      http.MethodPost,
@@ -405,7 +398,6 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		return resp, nil
 	})
 
-	// 8. POST /api/v1/task/{id}/pick
 	huma.Register(singularTaskGroup, huma.Operation{
 		OperationID: "pick-task",
 		Method:      http.MethodPost,
@@ -430,7 +422,6 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		return resp, nil
 	})
 
-	// 9. POST /api/v1/task/{id}/handoff
 	huma.Register(singularTaskGroup, huma.Operation{
 		OperationID: "handoff-task",
 		Method:      http.MethodPost,
@@ -458,7 +449,6 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		return resp, nil
 	})
 
-	// 10. GET /api/v1/context
 	huma.Register(contextGroup, huma.Operation{
 		OperationID: "get-context",
 		Method:      http.MethodGet,
