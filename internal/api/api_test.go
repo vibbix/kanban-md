@@ -92,6 +92,17 @@ func TestAPILifecycle(t *testing.T) {
 		t.Errorf("expected 1 task, got %d", len(tasks))
 	}
 
+	resp = hAPI.Get("/api/v0/tasks?search=%231")
+	if err := json.Unmarshal(resp.Body.Bytes(), &tasks); err != nil || len(tasks) != 1 {
+		t.Errorf("search by id: expected 1 task, got %d (%d): %s", len(tasks), resp.Code, resp.Body.String())
+	}
+
+	resp = hAPI.Get("/api/v0/tasks?search=nonexistent")
+	tasks = nil
+	if err := json.Unmarshal(resp.Body.Bytes(), &tasks); err != nil || len(tasks) != 0 {
+		t.Errorf("search miss: expected 0 tasks, got %d", len(tasks))
+	}
+
 	// 6. Board Config Get/Put
 	resp = hAPI.Get("/api/v0/board/config")
 	if resp.Code != http.StatusOK {

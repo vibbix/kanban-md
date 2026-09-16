@@ -1,6 +1,7 @@
 package board
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -196,26 +197,37 @@ func TestFilterBySearch(t *testing.T) {
 		{ID: 2, Title: "Add dark mode", Status: "todo", Priority: "medium", Tags: []string{"ui", "theme"}},
 		{ID: 3, Title: "Update README", Status: "done", Priority: "low", Body: "Add installation instructions"},
 		{ID: 4, Title: "Refactor auth", Status: "in-progress", Priority: "high", Body: "Split login flow"},
+		{ID: 13, Title: "Bump Go version", Status: "todo", Priority: "low", Body: "Target Go 1.23"},
+		{ID: 30, Title: "Prune old tasks", Status: "backlog", Priority: "low", Body: "Follow-up to #3"},
+		{ID: 33, Title: "Retry 3 times", Status: "todo", Priority: "low", Tags: []string{"v3"}},
 	}
 
 	tests := []struct {
 		name   string
 		search string
-		want   int
+		want   []int
 	}{
-		{"match title", "login", 2},       // "Fix login bug" and "Split login flow" in body
-		{"match body", "SSO", 1},          // body of task 1
-		{"match tag", "theme", 1},         // tag of task 2
-		{"case insensitive", "readme", 1}, // title of task 3
-		{"no match", "nonexistent", 0},
-		{"empty search", "", 4}, // all tasks
+		{"match title", "login", []int{1, 4}},
+		{"match body", "SSO", []int{1}},
+		{"match tag", "theme", []int{2}},
+		{"case insensitive", "readme", []int{3}},
+		{"no match", "nonexistent", nil},
+		{"empty search", "", []int{1, 2, 3, 4, 13, 30, 33}},
+		{"id ignores digits in other ids, body, title, tags", "3", []int{3}},
+		{"hash id ignores #3 in body", "#3", []int{3}},
+		{"two-digit id", "13", []int{13}},
+		{"repeated-digit id", "#33", []int{33}},
+		{"unknown id", "#300", nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := Filter(tasks, FilterOptions{Search: tt.search})
-			if len(result) != tt.want {
-				t.Errorf("got %d tasks, want %d", len(result), tt.want)
+			var got []int
+			for _, task := range Filter(tasks, FilterOptions{Search: tt.search}) {
+				got = append(got, task.ID)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("got IDs %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -145,6 +145,11 @@ type HandoffTaskOutput struct {
 	Body *TaskResponse
 }
 
+// ListTasksInput holds the query parameters for GET /tasks.
+type ListTasksInput struct {
+	Search string `query:"search" example:"#12" doc:"A number (12 or #12) matches only that exact task ID; anything else is a case-insensitive substring of title, body, or tags"`
+}
+
 // -- Structs for GET /context --
 type GetContextOutput struct {
 	Body ContextResponse
@@ -182,10 +187,10 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		Method:      http.MethodGet,
 		Path:        "",
 		Summary:     "List all tasks",
-		Description: "Returns every task on the board, including archived ones.",
+		Description: "Returns every task on the board, including archived ones, optionally filtered by search.",
 		Tags:        []string{"Tasks"},
-	}, func(ctx context.Context, input *struct{}) (*ListTasksOutput, error) {
-		tasks, _, err := board.List(cfg, board.ListOptions{})
+	}, func(_ context.Context, input *ListTasksInput) (*ListTasksOutput, error) {
+		tasks, _, err := board.List(cfg, board.ListOptions{Filter: board.FilterOptions{Search: input.Search}})
 		if err != nil {
 			return nil, huma.Error500InternalServerError("Failed to list tasks", err)
 		}

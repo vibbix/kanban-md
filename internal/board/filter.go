@@ -2,6 +2,7 @@
 package board
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,7 +19,7 @@ type FilterOptions struct {
 	Priorities      []string
 	Assignee        string
 	Tag             string
-	Search          string        // case-insensitive substring match across title, body, and tags
+	Search          string        // numeric ("12" or "#12"): exact ID only; otherwise case-insensitive substring match across title, body, and tags
 	Blocked         *bool         // nil=no filter, true=only blocked, false=only not-blocked
 	ParentID        *int          // nil=no filter, non-nil=only tasks with this parent
 	Unclaimed       bool          // only unclaimed or expired-claim tasks
@@ -77,8 +78,13 @@ func matchesStatus(status string, include, exclude []string) bool {
 	return true
 }
 
-// matchesSearch performs case-insensitive substring matching across title, body, and tags.
+// matchesSearch treats a numeric query ("12" or "#12") as an exact task ID
+// lookup; any other query is a case-insensitive substring match across title,
+// body, and tags.
 func matchesSearch(t *task.Task, query string) bool {
+	if id, err := strconv.Atoi(strings.TrimPrefix(query, "#")); err == nil {
+		return id == t.ID
+	}
 	q := strings.ToLower(query)
 	if strings.Contains(strings.ToLower(t.Title), q) {
 		return true
