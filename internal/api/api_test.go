@@ -14,7 +14,7 @@ import (
 func setupTestAPI(t *testing.T) (*config.Config, humatest.TestAPI) {
 	t.Helper()
 	_, humaAPI := humatest.New(t)
-	
+
 	dir := t.TempDir()
 	cfg, err := config.Init(dir, "API Test Board")
 	if err != nil {
@@ -60,7 +60,7 @@ func TestAPILifecycle(t *testing.T) {
 
 	// 3. Edit the task
 	resp = hAPI.Patch("/api/v0/task/1", map[string]any{
-		"title": "Updated Task",
+		"title":    "Updated Task",
 		"priority": "high",
 	})
 	if resp.Code != http.StatusOK {
@@ -74,13 +74,13 @@ func TestAPILifecycle(t *testing.T) {
 
 	// 4. Move the task
 	resp = hAPI.Put("/api/v0/task/1/status", map[string]any{
-		"status": "in-progress",
+		"status":   "in-progress",
 		"claimant": "test-agent",
 	})
 	if resp.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", resp.Code, resp.Body.String())
 	}
-	
+
 	// 5. List tasks
 	resp = hAPI.Get("/api/v0/tasks")
 	if resp.Code != http.StatusOK {
@@ -97,7 +97,7 @@ func TestAPILifecycle(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.Code)
 	}
-	
+
 	resp = hAPI.Put("/api/v0/board/config", map[string]any{
 		"board": map[string]string{
 			"name": "Updated Board",
@@ -221,14 +221,14 @@ func TestAPIMissingBranches(t *testing.T) {
 
 	// 1. PATCH with all optional fields
 	resp := hAPI.Patch("/api/v0/task/1", map[string]any{
-		"assignee": "test-user",
-		"tags": []string{"layer-1", "bug"},
-		"due": "2026-12-31",
-		"estimate": "5h",
-		"depends_on": []int{},
-		"blocked": true,
+		"assignee":     "test-user",
+		"tags":         []string{"layer-1", "bug"},
+		"due":          "2026-12-31",
+		"estimate":     "5h",
+		"depends_on":   []int{},
+		"blocked":      true,
 		"block_reason": "waiting for user",
-		"body": "a new body",
+		"body":         "a new body",
 	})
 	if resp.Code != http.StatusOK {
 		t.Errorf("expected 200 for full patch, got %d", resp.Code)
@@ -245,7 +245,7 @@ func TestAPIMissingBranches(t *testing.T) {
 	// 3. Handoff task
 	resp = hAPI.Post("/api/v0/task/1/handoff", map[string]any{
 		"agent": "test-agent",
-		"note": "Here you go",
+		"note":  "Here you go",
 	})
 	if resp.Code != http.StatusOK {
 		t.Errorf("expected 200 for handoff, got %d", resp.Code)
@@ -260,13 +260,13 @@ func TestAPIMissingBranches(t *testing.T) {
 	// 5. Config PUT with all remaining optional fields
 	resp = hAPI.Put("/api/v0/board/config", map[string]any{
 		"defaults": map[string]string{
-			"status": "todo",
+			"status":   "todo",
 			"priority": "low",
-			"class": "standard",
+			"class":    "standard",
 		},
 		"claim_timeout": "2h",
 		"tui": map[string]any{
-			"title_lines": 3,
+			"title_lines":        3,
 			"hide_empty_columns": true,
 		},
 	})
