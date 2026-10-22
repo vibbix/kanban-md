@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"encoding/json"
+	"maps"
 	"net/http"
 	"testing"
 
@@ -132,6 +133,106 @@ func TestAPILifecycle(t *testing.T) {
 	json.Unmarshal(resp.Body.Bytes(), &fetched)
 	if fetched.Status != "archived" {
 		t.Errorf("expected status 'archived', got %q", fetched.Status)
+	}
+}
+
+const (
+	task1Path  = "/api/v0/task/1"
+	propSprint = "sprint"
+	propTeam   = "team"
+	setProps   = "set_properties"
+	clearProps = "clear_properties"
+)
+
+// getProperties fetches task 1 and returns its properties as raw JSON literals.
+func getProperties(t *testing.T, hAPI humatest.TestAPI, query string) map[string]string {
+	t.Helper()
+	resp := hAPI.Get(task1Path + query)
+	var got struct {
+		Properties map[string]json.RawMessage `json:"properties"`
+	}
+	if err := json.Unmarshal(resp.Body.Bytes(), &got); err != nil {
+		t.Fatalf("get %q: %v (%d): %s", query, err, resp.Code, resp.Body.String())
+	}
+	out := make(map[string]string, len(got.Properties))
+	for k, v := range got.Properties {
+		out[k] = string(v)
+	}
+	return out
+}
+
+func TestAPIPropertiesRoundTrip(t *testing.T) {
+	_, hAPI := setupTestAPI(t)
+
+	resp := hAPI.Post("/api/v0/task", map[string]any{
+		"title":      "Props",
+		"properties": map[string]any{propSprint: 3, propTeam: "core", "flag": "true"},
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("create with properties: got %d: %s", resp.Code, resp.Body.String())
+	}
+	hAPI.Post("/api/v0/task", map[string]any{"title": "No props"})
+
+	if got := getProperties(t, hAPI, ""); len(got) != 0 {
+		t.Errorf("properties must be opt-in, got %v", got)
+	}
+	got := getProperties(t, hAPI, "?show_property=sprint&show_property=team&show_property=flag&show_property=missing")
+	if want := map[string]string{propSprint: `3`, propTeam: `"core"`, "flag": `"true"`}; !maps.Equal(got, want) {
+		t.Errorf("properties = %v, want %v", got, want)
+	}
+
+	for query, count := range map[string]int{
+		"property=team=core":                          1,
+		"property=sprint=3&property=team=core":        1,
+		"property=sprint=4":                           0,
+		"property=flag=true":                          0, // string "true" is not boolean true
+		"property=flag=%22true%22&show_property=flag": 1,
+	} {
+		resp = hAPI.Get("/api/v0/tasks?" + query)
+		var tasks []map[string]any
+		if err := json.Unmarshal(resp.Body.Bytes(), &tasks); err != nil || len(tasks) != count {
+			t.Errorf("%s: expected %d tasks, got %d (%d): %s", query, count, len(tasks), resp.Code, resp.Body.String())
+		}
+	}
+
+	resp = hAPI.Patch(task1Path, map[string]any{
+		setProps:   map[string]any{propSprint: 4, "done": nil},
+		clearProps: []string{propTeam},
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("patch properties: got %d: %s", resp.Code, resp.Body.String())
+	}
+	got = getProperties(t, hAPI, "?show_property=sprint&show_property=team&show_property=done")
+	if want := map[string]string{propSprint: "4", "done": "null"}; !maps.Equal(got, want) {
+		t.Errorf("after patch = %v, want %v", got, want)
+	}
+}
+
+func TestAPIPropertyErrors(t *testing.T) {
+	_, hAPI := setupTestAPI(t)
+	hAPI.Post("/api/v0/task", map[string]any{"title": "Props"})
+
+	for name, tc := range map[string]struct {
+		method, path string
+		body         any
+		code         int
+	}{
+		"owned key":     {http.MethodPatch, task1Path, map[string]any{setProps: map[string]any{"title": "x"}}, http.StatusBadRequest},
+		"owned clear":   {http.MethodPatch, task1Path, map[string]any{clearProps: []string{"status"}}, http.StatusBadRequest},
+		"set and clear": {http.MethodPatch, task1Path, map[string]any{setProps: map[string]any{"a": 1}, clearProps: []string{"a"}}, http.StatusConflict},
+		"non-scalar":    {http.MethodPost, "/api/v0/task", map[string]any{"title": "t", "properties": map[string]any{"a": []int{1}}}, http.StatusBadRequest},
+		"bad filter":    {http.MethodGet, "/api/v0/tasks?property=nokey", nil, http.StatusBadRequest},
+		"bad show key":  {http.MethodGet, task1Path + "?show_property=a%20b", nil, http.StatusBadRequest},
+		"bad list show": {http.MethodGet, "/api/v0/tasks?show_property=a%20b", nil, http.StatusBadRequest},
+	} {
+		var args []any
+		if tc.body != nil {
+			args = append(args, tc.body)
+		}
+		resp := hAPI.Do(tc.method, tc.path, args...)
+		if resp.Code != tc.code {
+			t.Errorf("%s: expected %d, got %d: %s", name, tc.code, resp.Code, resp.Body.String())
+		}
 	}
 }
 

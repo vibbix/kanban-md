@@ -2,21 +2,27 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"maps"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/antopolskiy/kanban-md/internal/board"
+	"github.com/antopolskiy/kanban-md/internal/clierr"
 	"github.com/antopolskiy/kanban-md/internal/config"
 	"github.com/antopolskiy/kanban-md/internal/date"
 	"github.com/antopolskiy/kanban-md/internal/filelock"
+	"github.com/antopolskiy/kanban-md/internal/property"
 	"github.com/antopolskiy/kanban-md/internal/task"
 	"github.com/danielgtaylor/huma/v2"
 )
 
 // -- Structs for GET /task/{id} --
 type GetTaskInput struct {
-	ID int `path:"id" example:"184" doc:"The unique integer ID of the task"`
+	ID           int      `path:"id" example:"184" doc:"The unique integer ID of the task"`
+	ShowProperty []string `query:"show_property,explode" doc:"A custom property key to include in properties; repeatable"`
 }
 
 type GetTaskOutput struct {
@@ -31,18 +37,19 @@ type ListTasksOutput struct {
 // -- Structs for POST /task --
 type CreateTaskInput struct {
 	Body struct {
-		Title     string     `json:"title" required:"true" doc:"The title of the task"`
-		Status    string     `json:"status,omitempty" doc:"The status column to place the task in"`
-		Priority  string     `json:"priority,omitempty" doc:"The priority level of the task"`
-		Class     string     `json:"class,omitempty" doc:"The class of service for the task"`
-		Assignee  string     `json:"assignee,omitempty" doc:"The person assigned to the task"`
-		Tags      []string   `json:"tags,omitempty" doc:"A list of tags associated with the task"`
-		Body      string     `json:"body,omitempty" doc:"The markdown body content of the task"`
-		Due       *date.Date `json:"due,omitempty" example:"2025-01-01" doc:"The due date for the task (YYYY-MM-DD)"`
-		Estimate  string     `json:"estimate,omitempty" doc:"The estimated effort for the task"`
-		Claimant  string     `json:"claimant,omitempty" doc:"The agent claiming the task upon creation"`
-		Parent    *int       `json:"parent,omitempty" doc:"The ID of the parent task"`
-		DependsOn []int      `json:"depends_on,omitempty" doc:"A list of task IDs this task depends on"`
+		Title      string                     `json:"title" required:"true" doc:"The title of the task"`
+		Status     string                     `json:"status,omitempty" doc:"The status column to place the task in"`
+		Priority   string                     `json:"priority,omitempty" doc:"The priority level of the task"`
+		Class      string                     `json:"class,omitempty" doc:"The class of service for the task"`
+		Assignee   string                     `json:"assignee,omitempty" doc:"The person assigned to the task"`
+		Tags       []string                   `json:"tags,omitempty" doc:"A list of tags associated with the task"`
+		Body       string                     `json:"body,omitempty" doc:"The markdown body content of the task"`
+		Due        *date.Date                 `json:"due,omitempty" example:"2025-01-01" doc:"The due date for the task (YYYY-MM-DD)"`
+		Estimate   string                     `json:"estimate,omitempty" doc:"The estimated effort for the task"`
+		Claimant   string                     `json:"claimant,omitempty" doc:"The agent claiming the task upon creation"`
+		Parent     *int                       `json:"parent,omitempty" doc:"The ID of the parent task"`
+		DependsOn  []int                      `json:"depends_on,omitempty" doc:"A list of task IDs this task depends on"`
+		Properties map[string]json.RawMessage `json:"properties,omitempty" doc:"Custom frontmatter properties; values must be JSON scalars (string, number, boolean, or null)"`
 	}
 }
 
@@ -54,22 +61,24 @@ type CreateTaskOutput struct {
 type EditTaskInput struct {
 	ID   int `path:"id" doc:"The unique integer ID of the task"`
 	Body struct {
-		Title       *string    `json:"title,omitempty" doc:"The updated title of the task"`
-		Status      *string    `json:"status,omitempty" doc:"The updated status of the task"`
-		Priority    *string    `json:"priority,omitempty" doc:"The updated priority of the task"`
-		Assignee    *string    `json:"assignee,omitempty" doc:"The updated assignee"`
-		Class       *string    `json:"class,omitempty" doc:"The updated class of service"`
-		BodyText    *string    `json:"body,omitempty" doc:"The updated markdown body content"`
-		Estimate    *string    `json:"estimate,omitempty" doc:"The updated estimate"`
-		Tags        []string   `json:"tags,omitempty" doc:"The completely replaced list of tags"`
-		Due         *date.Date `json:"due,omitempty" doc:"The updated due date"`
-		Started     *date.Date `json:"started,omitempty" doc:"The updated started date"`
-		Completed   *date.Date `json:"completed,omitempty" doc:"The updated completed date"`
-		Parent      *int       `json:"parent,omitempty" doc:"The updated parent task ID"`
-		DependsOn   []int      `json:"depends_on,omitempty" doc:"The completely replaced list of dependencies"`
-		Blocked     *bool      `json:"blocked,omitempty" doc:"Whether the task is currently blocked"`
-		BlockReason *string    `json:"block_reason,omitempty" doc:"The reason the task is blocked"`
-		Claimant    string     `json:"claimant,omitempty" doc:"Who is claiming the task to edit it"`
+		Title           *string                    `json:"title,omitempty" doc:"The updated title of the task"`
+		Status          *string                    `json:"status,omitempty" doc:"The updated status of the task"`
+		Priority        *string                    `json:"priority,omitempty" doc:"The updated priority of the task"`
+		Assignee        *string                    `json:"assignee,omitempty" doc:"The updated assignee"`
+		Class           *string                    `json:"class,omitempty" doc:"The updated class of service"`
+		BodyText        *string                    `json:"body,omitempty" doc:"The updated markdown body content"`
+		Estimate        *string                    `json:"estimate,omitempty" doc:"The updated estimate"`
+		Tags            []string                   `json:"tags,omitempty" doc:"The completely replaced list of tags"`
+		Due             *date.Date                 `json:"due,omitempty" doc:"The updated due date"`
+		Started         *date.Date                 `json:"started,omitempty" doc:"The updated started date"`
+		Completed       *date.Date                 `json:"completed,omitempty" doc:"The updated completed date"`
+		Parent          *int                       `json:"parent,omitempty" doc:"The updated parent task ID"`
+		DependsOn       []int                      `json:"depends_on,omitempty" doc:"The completely replaced list of dependencies"`
+		Blocked         *bool                      `json:"blocked,omitempty" doc:"Whether the task is currently blocked"`
+		BlockReason     *string                    `json:"block_reason,omitempty" doc:"The reason the task is blocked"`
+		Claimant        string                     `json:"claimant,omitempty" doc:"Who is claiming the task to edit it"`
+		SetProperties   map[string]json.RawMessage `json:"set_properties,omitempty" doc:"Custom properties to add or replace; values must be JSON scalars"`
+		ClearProperties []string                   `json:"clear_properties,omitempty" doc:"Custom property keys to remove"`
 	}
 }
 
@@ -147,7 +156,9 @@ type HandoffTaskOutput struct {
 
 // ListTasksInput holds the query parameters for GET /tasks.
 type ListTasksInput struct {
-	Search string `query:"search" example:"#12" doc:"A number (12 or #12) matches only that exact task ID; anything else is a case-insensitive substring of title, body, or tags"`
+	Search       string   `query:"search" example:"#12" doc:"A number (12 or #12) matches only that exact task ID; anything else is a case-insensitive substring of title, body, or tags"`
+	Property     []string `query:"property,explode" example:"sprint=3" doc:"Exact custom property match as KEY=LITERAL (JSON scalar or bare string); repeatable, AND logic"`
+	ShowProperty []string `query:"show_property,explode" doc:"A custom property key to include in each task's properties; repeatable"`
 }
 
 // -- Structs for GET /context --
@@ -169,6 +180,9 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		Description: "Returns a single task by its integer ID.",
 		Tags:        []string{"Tasks"},
 	}, func(ctx context.Context, input *GetTaskInput) (*GetTaskOutput, error) {
+		if err := validatePropertyKeys(input.ShowProperty); err != nil {
+			return nil, apiError("Invalid show_property", err)
+		}
 		path, err := task.FindByID(cfg.TasksPath(), input.ID)
 		if err != nil {
 			return nil, apiError("Task not found", err)
@@ -178,7 +192,7 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 			return nil, apiError("Failed to read task file", err)
 		}
 		resp := &GetTaskOutput{}
-		resp.Body = toTaskResponse(t)
+		resp.Body = toTaskResponse(t, input.ShowProperty...)
 		return resp, nil
 	})
 
@@ -190,12 +204,19 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		Description: "Returns every task on the board, including archived ones, optionally filtered by search.",
 		Tags:        []string{"Tasks"},
 	}, func(_ context.Context, input *ListTasksInput) (*ListTasksOutput, error) {
-		tasks, _, err := board.List(cfg, board.ListOptions{Filter: board.FilterOptions{Search: input.Search}})
+		if err := validatePropertyKeys(input.ShowProperty); err != nil {
+			return nil, apiError("Invalid show_property", err)
+		}
+		filters, err := parsePropertyFilters(input.Property)
+		if err != nil {
+			return nil, apiError("Invalid property filter", err)
+		}
+		tasks, _, err := board.List(cfg, board.ListOptions{Filter: board.FilterOptions{Search: input.Search, Properties: filters}})
 		if err != nil {
 			return nil, huma.Error500InternalServerError("Failed to list tasks", err)
 		}
 		resp := &ListTasksOutput{}
-		resp.Body = toTaskResponses(tasks)
+		resp.Body = toTaskResponses(tasks, input.ShowProperty...)
 		return resp, nil
 	})
 
@@ -207,6 +228,10 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		Description: "Creates a new task. Status, priority, and class default to the board configuration when omitted.",
 		Tags:        []string{"Tasks"},
 	}, func(ctx context.Context, input *CreateTaskInput) (*CreateTaskOutput, error) {
+		edits, err := parsePropertyEdits(input.Body.Properties, nil)
+		if err != nil {
+			return nil, apiError("Invalid properties", err)
+		}
 		unlock, err := filelock.Lock(filepath.Join(cfg.Dir(), ".lock"))
 		if err != nil {
 			return nil, huma.Error500InternalServerError("Failed to acquire lock", err)
@@ -214,17 +239,18 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		defer unlock()
 
 		params := board.CreateParams{
-			Title:     input.Body.Title,
-			Status:    input.Body.Status,
-			Priority:  input.Body.Priority,
-			Class:     input.Body.Class,
-			Assignee:  input.Body.Assignee,
-			Tags:      input.Body.Tags,
-			Body:      input.Body.Body,
-			Estimate:  input.Body.Estimate,
-			Claimant:  input.Body.Claimant,
-			Parent:    input.Body.Parent,
-			DependsOn: input.Body.DependsOn,
+			Properties: edits.sets,
+			Title:      input.Body.Title,
+			Status:     input.Body.Status,
+			Priority:   input.Body.Priority,
+			Class:      input.Body.Class,
+			Assignee:   input.Body.Assignee,
+			Tags:       input.Body.Tags,
+			Body:       input.Body.Body,
+			Estimate:   input.Body.Estimate,
+			Claimant:   input.Body.Claimant,
+			Parent:     input.Body.Parent,
+			DependsOn:  input.Body.DependsOn,
 		}
 		if input.Body.Due != nil {
 			params.Due = input.Body.Due
@@ -248,8 +274,15 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		Description: "Partially updates a task. Only the fields provided in the body are changed. Requires the matching claimant if the task is claimed.",
 		Tags:        []string{"Tasks"},
 	}, func(ctx context.Context, input *EditTaskInput) (*EditTaskOutput, error) {
+		edits, err := parsePropertyEdits(input.Body.SetProperties, input.Body.ClearProperties)
+		if err != nil {
+			return nil, apiError("Invalid properties", err)
+		}
 		result, err := board.Edit(cfg, input.ID, input.Body.Claimant, false, func(t *task.Task) (bool, error) {
-			changed := false
+			changed, propErr := edits.apply(t)
+			if propErr != nil {
+				return false, propErr
+			}
 			if input.Body.Title != nil {
 				t.Title = *input.Body.Title
 				changed = true
@@ -473,4 +506,76 @@ func registerTaskRoutes(v1 huma.API, cfg *config.Config) {
 		resp.Body = toContextResponse(contextData)
 		return resp, nil
 	})
+}
+
+// propertyEdits mirrors the CLI's --set-property/--clear-property plan.
+type propertyEdits struct {
+	sets   []property.Assignment
+	clears []string
+}
+
+// parsePropertyEdits validates up front so bad keys or values fail as client
+// errors. Sets are sorted because new keys are appended to the task file in
+// application order and JSON object order is not preserved.
+func parsePropertyEdits(sets map[string]json.RawMessage, clears []string) (propertyEdits, error) {
+	edits := propertyEdits{clears: clears}
+	for _, key := range slices.Sorted(maps.Keys(sets)) {
+		if err := property.ValidateKey(key); err != nil {
+			return propertyEdits{}, clierr.New(clierr.InvalidInput, err.Error())
+		}
+		value, err := property.ParseLiteral(string(sets[key]))
+		if err != nil {
+			return propertyEdits{}, clierr.Newf(clierr.InvalidInput, "property %q: %v", key, err)
+		}
+		edits.sets = append(edits.sets, property.Assignment{Key: key, Value: value})
+	}
+	if err := validatePropertyKeys(clears); err != nil {
+		return propertyEdits{}, err
+	}
+	for _, key := range clears {
+		if _, ok := sets[key]; ok {
+			return propertyEdits{}, clierr.Newf(clierr.StatusConflict, "cannot set and clear property %q together", key)
+		}
+	}
+	return edits, nil
+}
+
+func (e propertyEdits) apply(t *task.Task) (bool, error) {
+	changed := false
+	for _, set := range e.sets {
+		c, err := t.SetPropertyScalar(set.Key, set.Value)
+		if err != nil {
+			return false, err
+		}
+		changed = changed || c
+	}
+	for _, key := range e.clears {
+		c, err := t.ClearProperty(key)
+		if err != nil {
+			return false, err
+		}
+		changed = changed || c
+	}
+	return changed, nil
+}
+
+func parsePropertyFilters(raw []string) ([]property.Assignment, error) {
+	tests := make([]property.Assignment, 0, len(raw))
+	for _, r := range raw {
+		test, err := property.ParseAssignment(r)
+		if err != nil {
+			return nil, clierr.New(clierr.InvalidInput, err.Error())
+		}
+		tests = append(tests, test)
+	}
+	return tests, nil
+}
+
+func validatePropertyKeys(keys []string) error {
+	for _, key := range keys {
+		if err := property.ValidateKey(key); err != nil {
+			return clierr.New(clierr.InvalidInput, err.Error())
+		}
+	}
+	return nil
 }

@@ -4,10 +4,12 @@
 package api
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/antopolskiy/kanban-md/internal/board"
 	"github.com/antopolskiy/kanban-md/internal/date"
+	"github.com/antopolskiy/kanban-md/internal/output"
 	"github.com/antopolskiy/kanban-md/internal/task"
 )
 
@@ -35,11 +37,14 @@ type TaskResponse struct {
 	Class       string     `json:"class,omitempty" doc:"Class of service (e.g. standard, expedite, fixed-date, intangible)"`
 	Body        string     `json:"body,omitempty" doc:"Markdown body content below the task frontmatter"`
 	File        string     `json:"file,omitempty" doc:"Absolute path to the task's markdown file on disk"`
+	// json.RawMessage keeps exact scalar literals and documents as "any" in OpenAPI.
+	Properties map[string]json.RawMessage `json:"properties,omitempty" doc:"Requested custom properties (via show_property) that hold a scalar value"`
 }
 
 // toTaskResponse converts a domain task into its public representation,
-// returning nil for a nil input.
-func toTaskResponse(t *task.Task) *TaskResponse {
+// returning nil for a nil input. Custom properties are opt-in, like the CLI's
+// --show-property, so only the given keys are included.
+func toTaskResponse(t *task.Task, propertyKeys ...string) *TaskResponse {
 	if t == nil {
 		return nil
 	}
@@ -65,14 +70,29 @@ func toTaskResponse(t *task.Task) *TaskResponse {
 		Class:       t.Class,
 		Body:        t.Body,
 		File:        t.File,
+		Properties:  selectedProperties(t, propertyKeys),
 	}
 }
 
+// selectedProperties silently drops values that are not scalars, where the CLI
+// would print a warning to stderr.
+func selectedProperties(t *task.Task, keys []string) map[string]json.RawMessage {
+	if len(keys) == 0 {
+		return nil
+	}
+	values, _ := output.SelectedProperties(t, keys)
+	out := make(map[string]json.RawMessage, len(values))
+	for key, value := range values {
+		out[key] = json.RawMessage(value.JSONLiteral())
+	}
+	return out
+}
+
 // toTaskResponses converts a slice of domain tasks into public representations.
-func toTaskResponses(tasks []*task.Task) []*TaskResponse {
+func toTaskResponses(tasks []*task.Task, propertyKeys ...string) []*TaskResponse {
 	out := make([]*TaskResponse, len(tasks))
 	for i, t := range tasks {
-		out[i] = toTaskResponse(t)
+		out[i] = toTaskResponse(t, propertyKeys...)
 	}
 	return out
 }
